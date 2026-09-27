@@ -6,12 +6,74 @@ All business logic is delegated to organizer.py.
 """
 
 import os
+import sys
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from datetime import datetime
-from PIL import Image, ImageTk
 
 from organizer import organize_folder, undo_organize
+
+
+def resource_path(relative_path):
+    """Get absolute path to resource, works for dev and for PyInstaller bundle."""
+    base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_path, relative_path)
+
+
+def ensure_desktop_shortcut():
+    """Create a Desktop shortcut on first run of the compiled application."""
+    try:
+        if not getattr(sys, 'frozen', False):
+            return  # Only active for the compiled .exe distribution
+
+        target = os.path.abspath(sys.executable)
+
+        # Locate the user's active Desktop (supports OneDrive folder redirection)
+        desktop = None
+        try:
+            import winreg
+            with winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER,
+                r"Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders"
+            ) as key:
+                val, _ = winreg.QueryValueEx(key, "Desktop")
+                desktop = os.path.expandvars(val)
+        except Exception:
+            pass
+
+        if not desktop or not os.path.isdir(desktop):
+            desktop = os.path.join(os.environ.get("USERPROFILE", ""), "Desktop")
+
+        if not os.path.isdir(desktop):
+            return
+
+        shortcut_path = os.path.join(desktop, "File Organizer.lnk")
+        if os.path.exists(shortcut_path):
+            return  # Shortcut already exists
+
+        # Create shortcut via WScript.Shell without showing any console window
+        vbs_content = (
+            'Set WshShell = CreateObject("WScript.Shell")\n'
+            f'Set Shortcut = WshShell.CreateShortcut("{shortcut_path}")\n'
+            f'Shortcut.TargetPath = "{target}"\n'
+            f'Shortcut.WorkingDirectory = "{os.path.dirname(target)}"\n'
+            'Shortcut.Description = "File Organizer - SulamiDev"\n'
+            f'Shortcut.IconLocation = "{target},0"\n'
+            'Shortcut.Save\n'
+        )
+        temp_vbs = os.path.join(os.environ.get("TEMP", "."), "_create_shortcut.vbs")
+        with open(temp_vbs, "w", encoding="utf-8") as f:
+            f.write(vbs_content)
+
+        import subprocess
+        creation_flags = 0x08000000 if os.name == 'nt' else 0
+        subprocess.run(["cscript", "//nologo", temp_vbs], creationflags=creation_flags, timeout=5)
+        try:
+            os.remove(temp_vbs)
+        except OSError:
+            pass
+    except Exception:
+        pass
 
 
 class FileOrganizerApp(tk.Tk):
@@ -24,19 +86,30 @@ class FileOrganizerApp(tk.Tk):
         self.resizable(False, False)
         self.configure(bg="white")
 
-        # Load logo
-        logo_path = os.path.join(os.path.dirname(__file__), "images", "logo.jpg")
-        self._logo_img  = None
-        self._icon_img  = None
-        if os.path.isfile(logo_path):
-            img = Image.open(logo_path)
-            # Window icon (32x32)
-            icon = img.resize((32, 32), Image.LANCZOS)
-            self._icon_img = ImageTk.PhotoImage(icon)
-            self.iconphoto(True, self._icon_img)
-            # Header logo (50x50)
-            logo_small = img.resize((50, 50), Image.LANCZOS)
-            self._logo_img = ImageTk.PhotoImage(logo_small)
+        # Automatically ensure desktop shortcut on first run
+        ensure_desktop_shortcut()
+
+        # Load logo (using native Tkinter PhotoImage to eliminate heavy dependencies)
+        self._logo_img = None
+        self._icon_img = None
+
+        icon_path = resource_path(os.path.join("images", "logo_icon.png"))
+        if os.path.isfile(icon_path):
+            try:
+                self._icon_img = tk.PhotoImage(file=icon_path)
+                self.iconphoto(True, self._icon_img)
+            except Exception:
+                pass
+
+        header_logo_path = resource_path(os.path.join("images", "logo_header.png"))
+        if not os.path.isfile(header_logo_path):
+            header_logo_path = resource_path(os.path.join("images", "logo.png"))
+
+        if os.path.isfile(header_logo_path):
+            try:
+                self._logo_img = tk.PhotoImage(file=header_logo_path)
+            except Exception:
+                pass
 
         self.folder_path = tk.StringVar()
         self.status_var  = tk.StringVar(value="No folder selected.")
