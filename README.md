@@ -16,7 +16,6 @@ It moves files in a selected folder into sub-folders based on file type.
 ## How to Run
 
 ```bash
-pip install pillow
 python main.py
 ```
 
@@ -94,7 +93,6 @@ Automation/
 
 - Python 3
 - Tkinter
-- Pillow
 
 ---
 
