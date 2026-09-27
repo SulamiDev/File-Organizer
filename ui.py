@@ -39,25 +39,38 @@ class FileOrganizerApp(tk.Tk):
         self._build_status_bar()
 
     def _build_header(self):
-        header = tk.Frame(self, bg="#C0392B", height=72)
+        header = tk.Frame(self, bg="#C0392B", height=90)
         header.pack(fill="x")
         header.pack_propagate(False)
 
+        # Left side – title + subtitle
+        left = tk.Frame(header, bg="#C0392B")
+        left.pack(side="left", padx=20, pady=10)
+
         tk.Label(
-            header,
+            left,
             text="File Organizer",
             font=("Segoe UI", 22, "bold"),
             bg="#C0392B",
             fg="white",
-        ).pack(side="left", padx=20, pady=10)
+        ).pack(anchor="w")
 
         tk.Label(
-            header,
+            left,
             text="Automatically sort your files by type",
-            font=("Segoe UI", 11),
+            font=("Segoe UI", 10),
             bg="#C0392B",
             fg="#FFCCCC",
-        ).pack(side="left", padx=5, pady=22)
+        ).pack(anchor="w", pady=(2, 0))
+
+        # Right side – SulamiDev brand
+        tk.Label(
+            header,
+            text="SulamiDev",
+            font=("Segoe UI", 12, "bold"),
+            bg="#C0392B",
+            fg="#FFAAAA",
+        ).pack(side="right", padx=20)
 
     def _build_folder_selector(self):
         sel_frame = tk.Frame(self, bg="white", pady=16)
@@ -244,6 +257,15 @@ class FileOrganizerApp(tk.Tk):
             return
         if not os.path.isdir(folder):
             messagebox.showerror("Error", "The selected path is not a valid folder.")
+            return
+
+        # ── Confirmation dialog ───────────────────────────────────────────────
+        if not messagebox.askyesno(
+            "Confirm Organize",
+            f"Are you sure you want to organize the folder?\n\n"
+            f"📁  {folder}\n\n"
+            f"Files will be sorted into sub-folders automatically."
+        ):
             return
 
         self._clear_log()
