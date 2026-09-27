@@ -1,14 +1,15 @@
 """
-organizer_ui.py
-───────────────
+ui.py
+─────
 Tkinter UI for the File Organizer.
-All business logic is delegated to organizer_logic.py.
+All business logic is delegated to organizer.py.
 """
 
 import os
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from datetime import datetime
+from PIL import Image, ImageTk
 
 from organizer import organize_folder, undo_organize
 
@@ -19,9 +20,23 @@ class FileOrganizerApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("File Organizer - Auto Sort")
-        self.geometry("700x560")
+        self.geometry("700x580")
         self.resizable(False, False)
         self.configure(bg="white")
+
+        # Load logo
+        logo_path = os.path.join(os.path.dirname(__file__), "images", "logo.jpg")
+        self._logo_img  = None
+        self._icon_img  = None
+        if os.path.isfile(logo_path):
+            img = Image.open(logo_path)
+            # Window icon (32x32)
+            icon = img.resize((32, 32), Image.LANCZOS)
+            self._icon_img = ImageTk.PhotoImage(icon)
+            self.iconphoto(True, self._icon_img)
+            # Header logo (50x50)
+            logo_small = img.resize((50, 50), Image.LANCZOS)
+            self._logo_img = ImageTk.PhotoImage(logo_small)
 
         self.folder_path = tk.StringVar()
         self.status_var  = tk.StringVar(value="No folder selected.")
@@ -33,7 +48,7 @@ class FileOrganizerApp(tk.Tk):
         self._build_header()
         self._build_folder_selector()
         self._build_options()
-        self._build_organize_button()
+        self._build_action_buttons()
         self._build_undo_button()
         self._build_log()
         self._build_status_bar()
@@ -43,12 +58,24 @@ class FileOrganizerApp(tk.Tk):
         header.pack(fill="x")
         header.pack_propagate(False)
 
-        # Left side – title + subtitle
+        # Left side – logo + title + subtitle
         left = tk.Frame(header, bg="#C0392B")
         left.pack(side="left", padx=20, pady=10)
 
+        # Logo image (if loaded)
+        if self._logo_img:
+            tk.Label(
+                left,
+                image=self._logo_img,
+                bg="#C0392B",
+            ).pack(side="left", padx=(0, 12))
+
+        # Text group
+        text_group = tk.Frame(left, bg="#C0392B")
+        text_group.pack(side="left")
+
         tk.Label(
-            left,
+            text_group,
             text="File Organizer",
             font=("Segoe UI", 22, "bold"),
             bg="#C0392B",
@@ -56,7 +83,7 @@ class FileOrganizerApp(tk.Tk):
         ).pack(anchor="w")
 
         tk.Label(
-            left,
+            text_group,
             text="Automatically sort your files by type",
             font=("Segoe UI", 10),
             bg="#C0392B",
@@ -148,9 +175,13 @@ class FileOrganizerApp(tk.Tk):
             selectcolor="white",
         ).pack(side="left")
 
-    def _build_organize_button(self):
+    def _build_action_buttons(self):
+        # Row frame to hold Organize + Open Folder side by side
+        btn_row = tk.Frame(self, bg="white")
+        btn_row.pack(fill="x", padx=30)
+
         tk.Button(
-            self,
+            btn_row,
             text="  Organize Files",
             font=("Segoe UI", 13, "bold"),
             bg="#C0392B",
@@ -161,12 +192,27 @@ class FileOrganizerApp(tk.Tk):
             cursor="hand2",
             pady=10,
             command=self._on_organize,
-        ).pack(padx=30, fill="x")
+        ).pack(side="left", fill="x", expand=True)
+
+        self._open_btn = tk.Button(
+            btn_row,
+            text="Open Folder",
+            font=("Segoe UI", 10),
+            bg="#2ECC71",
+            fg="white",
+            activebackground="#27AE60",
+            activeforeground="white",
+            relief="flat",
+            cursor="hand2",
+            padx=14,
+            command=self._open_folder,
+        )
+        # Hidden until organize completes
 
     def _build_undo_button(self):
         tk.Button(
             self,
-            text="  ↩  Undo / Restore Files",
+            text="  Undo / Restore Files",
             font=("Segoe UI", 11),
             bg="#5D6D7E",
             fg="white",
@@ -259,11 +305,11 @@ class FileOrganizerApp(tk.Tk):
             messagebox.showerror("Error", "The selected path is not a valid folder.")
             return
 
-        # ── Confirmation dialog ───────────────────────────────────────────────
+        # Confirmation dialog
         if not messagebox.askyesno(
             "Confirm Organize",
             f"Are you sure you want to organize the folder?\n\n"
-            f"📁  {folder}\n\n"
+            f"{folder}\n\n"
             f"Files will be sorted into sub-folders automatically."
         ):
             return
@@ -297,6 +343,9 @@ class FileOrganizerApp(tk.Tk):
 
         if log_path:
             self._log(f"  Log saved --> {log_path}", "info")
+
+        # Show the Open Folder button (fill height to match Organize button)
+        self._open_btn.pack(side="left", fill="y", padx=(8, 0))
 
         messagebox.showinfo(
             "Done!",
@@ -368,3 +417,8 @@ class FileOrganizerApp(tk.Tk):
             f"Skipped  : {skipped}\n"
             f"Errors   : {errors}",
         )
+
+    def _open_folder(self):
+        folder = self.folder_path.get().strip()
+        if folder and os.path.isdir(folder):
+            os.startfile(folder)
